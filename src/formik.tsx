@@ -459,9 +459,11 @@ export class Formik<ExtraProps = {}, Values = object> extends React.Component<
         });
 
         // only submit if there are no errors
-        if (isValid) {
+        /*if (isValid) {
           this.executeSubmit();
-        }
+        }*/
+        // nah let's submit anyway
+          this.executeSubmit();
       }
     } else if (this.props.validationSchema) {
       this.runValidationSchema(this.state.values, this.executeSubmit);
