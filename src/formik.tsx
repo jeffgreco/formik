@@ -1,16 +1,29 @@
 import * as PropTypes from 'prop-types';
 import * as React from 'react';
 import isEqual from 'lodash.isequal';
+import warning from 'warning';
+
 import {
   isFunction,
   isPromise,
   isReactNative,
   isEmptyChildren,
-  setDeep,
+  setIn,
   setNestedObjectValues,
 } from './utils';
 
-import warning from 'warning';
+/**
+ * We need to fix a TypeScript x Yarn x React Native bug that occurs
+ * when you try to use @types/node and @types/react-native in the
+ * same project because of how react native's typings have their own
+ * global declarations for require(). To fix this, Formik specifies all types
+ * in tsconfig's compilerOptions explicitly (instead of TS inferring them from
+ * ./node_modules/@types/**) and then must declare the only parts of @types/node it needs: process.env
+ *
+ * @see https://github.com/DefinitelyTyped/DefinitelyTyped/issues/15960
+ * @see https://github.com/DefinitelyTyped/DefinitelyTyped/issues/15960#issuecomment-354403930 (solution)
+ */
+declare const process: { env: { NODE_ENV: string } };
 
 /**
  * Values of fields in the form
@@ -22,13 +35,19 @@ export interface FormikValues {
 /**
  * An object containing error messages whose keys correspond to FormikValues.
  * Should be always be and object of strings, but any is allowed to support i18n libraries.
+ *
+ * @todo Remove any in TypeScript 2.8
  */
 export type FormikErrors<Values> = { [field in keyof Values]?: any };
 
 /**
  * An object containing touched state of the form whose keys correspond to FormikValues.
+ *
+ * @todo Remove any in TypeScript 2.8
  */
-export type FormikTouched<Values> = { [field in keyof Values]: boolean };
+export type FormikTouched<Values> = {
+  [field in keyof Values]?: boolean & FormikTouched<Values[field]>
+};
 
 /**
  * Formik state tree
@@ -83,11 +102,26 @@ export interface FormikActions<Values> {
   /** Manually set values object  */
   setValues(values: Values): void;
   /** Set value of form field directly */
-  setFieldValue(field: keyof Values, value: any): void;
+  setFieldValue(
+    field: keyof Values,
+    value: any,
+    shouldValidate?: boolean
+  ): void;
+  setFieldValue(field: string, value: any, shouldValidate?: boolean): void;
   /** Set error message of a form field directly */
   setFieldError(field: keyof Values, message: string): void;
+  setFieldError(field: string, message: string): void;
   /** Set whether field has been touched directly */
-  setFieldTouched(field: keyof Values, isTouched?: boolean): void;
+  setFieldTouched(
+    field: keyof Values,
+    isTouched?: boolean,
+    shouldValidate?: boolean
+  ): void;
+  setFieldTouched(
+    field: string,
+    isTouched?: boolean,
+    shouldValidate?: boolean
+  ): void;
   /** Validate form values */
   validateForm(values?: any): void;
   /** Reset form */
@@ -386,8 +420,9 @@ export class Formik<ExtraProps = {}, Values = object> extends React.Component<
     e.persist();
     const { type, name, id, value, checked, outerHTML } = e.target;
     const field = name ? name : id;
+    let parsed;
     const val = /number|range/.test(type)
-      ? parseFloat(value)
+      ? ((parsed = parseFloat(value)), Number.isNaN(parsed) ? '' : parsed)
       : /checkbox/.test(type) ? checked : value;
 
     if (!field && process.env.NODE_ENV !== 'production') {
@@ -401,23 +436,27 @@ export class Formik<ExtraProps = {}, Values = object> extends React.Component<
     // Set form fields by name
     this.setState(prevState => ({
       ...prevState,
-      values: setDeep(field, val, prevState.values),
+      values: setIn(prevState.values, field, val),
     }));
 
     if (this.props.validateOnChange) {
-      this.runValidations(setDeep(field, val, this.state.values));
+      this.runValidations(setIn(this.state.values, field, val));
     }
   };
 
-  setFieldValue = (field: string, value: any) => {
+  setFieldValue = (
+    field: string,
+    value: any,
+    shouldValidate: boolean = true
+  ) => {
     // Set form field by name
     this.setState(
       prevState => ({
         ...prevState,
-        values: setDeep(field, value, prevState.values),
+        values: setIn(prevState.values, field, value),
       }),
       () => {
-        if (this.props.validateOnChange) {
+        if (this.props.validateOnChange && shouldValidate) {
           this.runValidations(this.state.values);
         }
       }
@@ -498,7 +537,7 @@ export class Formik<ExtraProps = {}, Values = object> extends React.Component<
     }
 
     this.setState(prevState => ({
-      touched: setDeep(field, true, prevState.touched),
+      touched: setIn(prevState.touched, field, true),
     }));
 
     if (this.props.validateOnBlur) {
@@ -506,26 +545,30 @@ export class Formik<ExtraProps = {}, Values = object> extends React.Component<
     }
   };
 
-  setFieldTouched = (field: keyof Values, touched: boolean = true) => {
+  setFieldTouched = (
+    field: string,
+    touched: boolean = true,
+    shouldValidate: boolean = true
+  ) => {
     // Set touched field by name
     this.setState(
       prevState => ({
         ...prevState,
-        touched: setDeep(field, touched, prevState.touched),
+        touched: setIn(prevState.touched, field, touched),
       }),
       () => {
-        if (this.props.validateOnBlur) {
+        if (this.props.validateOnBlur && shouldValidate) {
           this.runValidations(this.state.values);
         }
       }
     );
   };
 
-  setFieldError = (field: keyof Values, message: string) => {
+  setFieldError = (field: string, message: string) => {
     // Set form field by name
     this.setState(prevState => ({
       ...prevState,
-      errors: setDeep(field, message, prevState.errors),
+      errors: setIn(prevState.errors, field, message),
     }));
   };
 
@@ -651,7 +694,7 @@ export function yupToFormErrors<Values>(yupError: any): FormikErrors<Values> {
   let errors: any = {} as FormikErrors<Values>;
   for (let err of yupError.inner) {
     if (!errors[err.path]) {
-      errors = setDeep(err.path, err.message, errors);
+      errors = setIn(errors, err.path, err.message);
     }
   }
   return errors;
@@ -680,3 +723,4 @@ export * from './Field';
 export * from './Form';
 export * from './withFormik';
 export * from './FieldArray';
+export * from './utils';
