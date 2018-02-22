@@ -592,14 +592,14 @@ const MyReactNativeForm = props => (
           actions.setSubmitting(false);
         }, 1000);
       }}
-      render={props => (
+      render={formikProps => (
         <View>
           <TextInput
             name="email"
-            onChangeText={props.handleChange} // this WILL NOT WORK IN RN
-            value={props.values.email}
+            onChangeText={formikProps.handleChange} // this WILL NOT WORK IN RN
+            value={formikProps.values.email}
           />
-          <Button onPress={props.handleSubmit} />
+          <Button onPress={formikProps.handleSubmit} />
         </View>
       )}
     />
@@ -1331,13 +1331,13 @@ export const FriendList = () => (
                     <Field name={`friends.${index}`} />
                     <button
                       type="button"
-                      onClick={() => arrayHelpers.remove(index) // remove a friend from the list}
+                      onClick={() => arrayHelpers.remove(index)} // remove a friend from the list
                     >
                       -
                     </button>
                     <button
                       type="button"
-                      onClick={() => arrayHelpers.insert(index, '') // insert an empty string at a position}
+                      onClick={() => arrayHelpers.insert(index, '')} // insert an empty string at a position
                     >
                       +
                     </button>
@@ -1348,7 +1348,7 @@ export const FriendList = () => (
                   type="button"
                   onClick={() => arrayHelpers.push('')}
                 >
-                  {/** show this when user has removed all friends from the list */}
+                  {/* show this when user has removed all friends from the list */}
                   Add a friend
                 </button>
               )}

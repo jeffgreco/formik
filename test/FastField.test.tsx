@@ -1,6 +1,7 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
-import { Formik, Field, FieldProps, FormikProps } from '../src';
+
+import { FastField as Field, FieldProps, Formik, FormikProps } from '../src';
 
 import { shallow } from 'enzyme';
 import { noop } from './testHelpers';
@@ -24,14 +25,12 @@ describe('A <Field />', () => {
       shallow(<Field {...props} />, { context: { formik: ctx } });
 
     it('calls validate during onChange if present', () => {
-      const handleChange = jest.fn(noop);
-      const setFieldError = jest.fn(noop);
+      const registerField = jest.fn(noop);
       const validate = jest.fn(noop);
       const tree = makeFieldTree(
         { name: 'name', validate },
         {
-          handleChange,
-          setFieldError,
+          registerField,
           validateOnChange: true,
         }
       );
@@ -42,20 +41,16 @@ describe('A <Field />', () => {
           value: 'ian',
         },
       });
-      expect(handleChange).toHaveBeenCalled();
-      expect(setFieldError).toHaveBeenCalled();
       expect(validate).toHaveBeenCalled();
     });
 
     it('does NOT call validate during onChange if validateOnChange is set to false', () => {
-      const handleChange = jest.fn(noop);
-      const setFieldError = jest.fn(noop);
+      const registerField = jest.fn(noop);
       const validate = jest.fn(noop);
       const tree = makeFieldTree(
         { name: 'name', validate },
         {
-          handleChange,
-          setFieldError,
+          registerField,
           validateOnChange: false,
         }
       );
@@ -66,20 +61,19 @@ describe('A <Field />', () => {
           value: 'ian',
         },
       });
-      expect(handleChange).toHaveBeenCalled();
-      expect(setFieldError).not.toHaveBeenCalled();
+
       expect(validate).not.toHaveBeenCalled();
     });
 
     it('calls validate during onBlur if present', () => {
-      const handleBlur = jest.fn(noop);
-      const setFieldError = jest.fn(noop);
       const validate = jest.fn(noop);
+      const registerField = jest.fn(noop);
+      const setFormikState = jest.fn(noop);
       const tree = makeFieldTree(
         { name: 'name', validate },
         {
-          handleBlur,
-          setFieldError,
+          registerField,
+          setFormikState,
           validateOnBlur: true,
         }
       );
@@ -90,20 +84,20 @@ describe('A <Field />', () => {
           value: 'ian',
         },
       });
-      expect(handleBlur).toHaveBeenCalled();
-      expect(setFieldError).toHaveBeenCalled();
+      expect(setFormikState).toHaveBeenCalled();
+      expect(registerField).toHaveBeenCalled();
       expect(validate).toHaveBeenCalled();
     });
 
     it('does NOT call validate during onBlur if validateOnBlur is set to false', () => {
-      const handleBlur = jest.fn(noop);
-      const setFieldError = jest.fn(noop);
       const validate = jest.fn(noop);
+      const registerField = jest.fn(noop);
+      const setFormikState = jest.fn(noop);
       const tree = makeFieldTree(
         { name: 'name', validate },
         {
-          handleBlur,
-          setFieldError,
+          setFormikState,
+          registerField,
           validateOnBlur: false,
         }
       );
@@ -114,8 +108,7 @@ describe('A <Field />', () => {
           value: 'ian',
         },
       });
-      expect(handleBlur).toHaveBeenCalled();
-      expect(setFieldError).not.toHaveBeenCalled();
+      expect(setFormikState).toHaveBeenCalled();
       expect(validate).not.toHaveBeenCalled();
     });
   });
@@ -157,9 +150,9 @@ describe('A <Field />', () => {
     });
 
     it('receives { field, form } props', () => {
-      let actual: any; /** FieldProps ;) */
-      let injected: any; /** FieldProps ;) */
-      const Component: React.SFC<FieldProps> = props =>
+      let actual: any; /** FieldProps<any> ;) */
+      let injected: any; /** FieldProps<any> ;) */
+      const Component: React.SFC<FieldProps<any>> = props =>
         (actual = props) && null;
 
       ReactDOM.render(
@@ -172,11 +165,9 @@ describe('A <Field />', () => {
         />,
         node
       );
-      const { handleBlur, handleChange } = injected;
+
       expect(actual.field.name).toBe('name');
       expect(actual.field.value).toBe('jared');
-      expect(actual.field.onChange).toBe(handleChange);
-      expect(actual.field.onBlur).toBe(handleBlur);
       expect(actual.form).toEqual(injected);
     });
   });
@@ -209,12 +200,9 @@ describe('A <Field />', () => {
               placeholder={placeholder}
               name="name"
               testingAnArbitraryProp="thing"
-              render={({ field, form }: FieldProps) => {
-                const { handleBlur, handleChange } = formikProps;
+              render={({ field, form }: FieldProps<any>) => {
                 expect(field.name).toBe('name');
                 expect(field.value).toBe('jared');
-                expect(field.onChange).toBe(handleChange);
-                expect(field.onBlur).toBe(handleBlur);
                 expect(form).toEqual(formikProps);
 
                 return null;
@@ -284,14 +272,14 @@ describe('A <Field />', () => {
       );
 
       expect(output).toContain(
-        'You should not use <Field component> and <Field children> as a function in the same <Field> component; <Field component> will be ignored.'
+        'Warning: You should not use <FastField component> and <FastField children> as a function in the same <FastField> component; <FastField component> will be ignored.'
       );
     });
 
-    it('warns if both non-string component and children children as a function', () => {
+    it('warns if both non-string component and children as a function', () => {
       let output = '';
       let actual;
-      const Component: React.SFC<FieldProps> = props =>
+      const Component: React.SFC<FieldProps<any>> = props =>
         (actual = props) && null;
 
       (global as any).console = {
@@ -310,7 +298,7 @@ describe('A <Field />', () => {
       );
 
       expect(output).toContain(
-        'You should not use <Field component> and <Field children> as a function in the same <Field> component; <Field component> will be ignored.'
+        'Warning: You should not use <FastField component> and <FastField children> as a function in the same <FastField> component; <FastField component> will be ignored.'
       );
     });
 
@@ -335,14 +323,14 @@ describe('A <Field />', () => {
       );
 
       expect(output).toContain(
-        'You should not use <Field component> and <Field render> in the same <Field> component; <Field component> will be ignored'
+        'Warning: You should not use <FastField component> and <FastField render> in the same <FastField> component; <FastField component> will be ignored'
       );
     });
 
     it('warns if both non-string component and render', () => {
       let output = '';
       let actual;
-      const Component: React.SFC<FieldProps> = props =>
+      const Component: React.SFC<FieldProps<any>> = props =>
         (actual = props) && null;
 
       (global as any).console = {
@@ -363,7 +351,7 @@ describe('A <Field />', () => {
       );
 
       expect(output).toContain(
-        'You should not use <Field component> and <Field render> in the same <Field> component; <Field component> will be ignored'
+        'Warning: You should not use <FastField component> and <FastField render> in the same <FastField> component; <FastField component> will be ignored'
       );
     });
 
@@ -386,7 +374,7 @@ describe('A <Field />', () => {
       );
 
       expect(output).toContain(
-        'You should not use <Field render> and <Field children> in the same <Field> component; <Field children> will be ignored'
+        'Warning: You should not use <FastField render> and <FastField children> in the same <FastField> component; <FastField children> will be ignored'
       );
     });
 
@@ -404,7 +392,7 @@ describe('A <Field />', () => {
     it('receives { field, form } props', () => {
       let actual: any;
       let injected: any;
-      const Component: React.SFC<FieldProps> = props =>
+      const Component: React.SFC<FieldProps<any>> = props =>
         (actual = props) && null;
 
       ReactDOM.render(
@@ -417,10 +405,7 @@ describe('A <Field />', () => {
         />,
         node
       );
-      const { handleBlur, handleChange } = injected;
       expect(actual.field.name).toBe('name');
-      expect(actual.field.onChange).toBe(handleChange);
-      expect(actual.field.onBlur).toBe(handleBlur);
       expect(actual.field.value).toBe('jared');
       expect(actual.form).toEqual(injected);
     });
@@ -428,7 +413,7 @@ describe('A <Field />', () => {
     it('can resolve bracket paths', () => {
       let actual: any;
       let injected: any;
-      const Component: React.SFC<FieldProps> = props =>
+      const Component: React.SFC<FieldProps<any>> = props =>
         (actual = props) && null;
 
       ReactDOM.render(
@@ -448,7 +433,7 @@ describe('A <Field />', () => {
     it('can resolve mixed dot and bracket paths', () => {
       let actual: any;
       let injected: any;
-      const Component: React.SFC<FieldProps> = props =>
+      const Component: React.SFC<FieldProps<any>> = props =>
         (actual = props) && null;
 
       ReactDOM.render(
@@ -468,7 +453,7 @@ describe('A <Field />', () => {
     it('can resolve mixed dot and bracket paths II', () => {
       let actual: any;
       let injected: any;
-      const Component: React.SFC<FieldProps> = props =>
+      const Component: React.SFC<FieldProps<any>> = props =>
         (actual = props) && null;
 
       ReactDOM.render(
